@@ -207,13 +207,14 @@ jobs:
           sudo ln -s /opt/musl_gcc/${{ env.URL }}-cross/bin/*gcc /usr/bin/
           #sudo apt-get update && sudo apt-get install -qq crossbuild-essential-arm64 crossbuild-essential-armhf musl-tools
           if [[ $TARGET =~ ^mips.*$ ]]; then
-            echo "指定 $TARGET 架构 使用rust 1.74版本，若编译失败 请修改此处升级版本 "
-            rustup install 1.74
-            rustup default 1.74
-          else
-            echo "指定 $TARGET 架构 使用rust 1.77版本，若编译失败 请修改此处升级版本 "
-            rustup install 1.77
-            rustup default 1.77
+            cd /opt/musl_gcc/${URL}-cross/lib/gcc/${URL}/11.2.1
+            cp libgcc_eh.a libunwind.a
+            rustup toolchain install nightly-x86_64-unknown-linux-gnu
+            rustup component add rust-src --toolchain nightly-x86_64-unknown-linux-gnu
+            RUST_LIB_SRC=$HOME/.rustup/toolchains/nightly-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/
+            if [[ -f $RUST_LIB_SRC/library/Cargo.lock && ! -f $RUST_LIB_SRC/Cargo.lock ]]; then 
+               cp -f $RUST_LIB_SRC/library/Cargo.lock $RUST_LIB_SRC/Cargo.lock
+            fi
           fi
           rustup target add ${{ env.TARGET }}
           #添加交叉编译配置
@@ -248,11 +249,17 @@ jobs:
           
           [target.mipsel-unknown-linux-musl]
           linker = "mipsel-linux-muslsf-gcc"
-          rustflags = ["-C", "target-feature=+crt-static"]
+          rustflags = ["-C", "target-feature=+crt-static","-C", "strip=symbols","-C", "link-arg=-static",
+          "-C", "relocation-model=static","-C", "link-arg=-no-pie","--cfg", "compiler_builtins_no_debug",
+          "-L", "/opt/musl_gcc/mipsel-linux-muslsf-cross/mipsel-linux-muslsf/lib",
+          "-L", "/opt/musl_gcc/mipsel-linux-muslsf-cross/lib/gcc/mipsel-linux-muslsf/11.2.1"]
           
           [target.mips-unknown-linux-musl]
           linker = "mips-linux-muslsf-gcc"
-          rustflags = ["-C", "target-feature=+crt-static"]      
+          rustflags = ["-C", "target-feature=+crt-static","-C", "strip=symbols","-C", "link-arg=-static",
+          "-C", "relocation-model=static","-C", "link-arg=-no-pie","--cfg", "compiler_builtins_no_debug",
+          "-L", "/opt/musl_gcc/mips-linux-muslsf-cross/mips-linux-muslsf/lib",
+          "-L", "/opt/musl_gcc/mips-linux-muslsf-cross/lib/gcc/mips-linux-muslsf/11.2.1"]      
           EOF
       - name: 打印版本信息 (Rust, cargo, GCC)
         shell: bash
@@ -277,7 +284,11 @@ jobs:
             HOMEBOX_ENV=production cross build --release --target=${{ matrix.target }}
           else
             echo "编译： cargo build --locked --release --target=${{ matrix.target }}"
-            HOMEBOX_ENV=production cargo build --release --target=${{ matrix.target }}
+            if [[ $TARGET =~ ^mips.*$ ]]; then
+              HOMEBOX_ENV=production cargo +nightly build --release --target=${{ matrix.target }} -Z build-std=std,panic_abort
+            else
+              HOMEBOX_ENV=production cargo build --release --target=${{ matrix.target }}
+            fi
           fi
             
           cd target/${{ matrix.target }}/release
