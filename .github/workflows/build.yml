@@ -79,10 +79,11 @@ jobs:
           path: build/static
 
   
-  build-dufs:
+  build-homebox:
     needs: 
      - build-web
      - check
+    name: ${{ matrix.NAME }}
     strategy:
       fail-fast: false
       matrix:
@@ -269,6 +270,7 @@ jobs:
       - name: 编译dufs
         shell: bash
         run: |
+          cd server
           if [[ $TARGET == 'aarch64-apple-darwin' || $TARGET == 'aarch64-pc-windows-msvc' || $TARGET == 'i686-pc-windows-msvc' ]]; then
             echo "编译： cross build --release --target=${{ matrix.target }}"
             HOMEBOX_ENV=production cross build --release --target=${{ matrix.target }}
@@ -296,14 +298,14 @@ jobs:
       - name: 压缩程序
         if: ${{ matrix.TARGET != 'aarch64-apple-darwin' && matrix.TARGET != 'aarch64-pc-windows-msvc' && matrix.TARGET != 'x86_64-apple-darwin' && matrix.TARGET != 'x86_64-pc-windows-msvc' && matrix.TARGET != 'i686-pc-windows-msvc' }}
         run: |
-          cd target/${{ matrix.target }}/release/out
+          cd server/target/${{ matrix.target }}/release/out
           cp ${{ matrix.NAME }} ${{ matrix.NAME }}-upx
           upx --lzma --best ${{ matrix.NAME }}-upx
       - name: 上传程序
         uses: actions/upload-artifact@v4
         with:
           name: homebox-${{ matrix.target }}
-          path: target/${{ matrix.target }}/release/out/*
+          path: server/target/${{ matrix.target }}/release/out/*
 
       - name: 发布
         uses: softprops/action-gh-release@v2
@@ -319,7 +321,7 @@ jobs:
               ${{ github.event.inputs.info }}
               
             tag_name: ${{ env.TAG }}
-            files: target/${{ matrix.target }}/release/out/*
+            files: server/target/${{ matrix.target }}/release/out/*
   keepalive-workflow:
     name: 工作流保活
     runs-on: ubuntu-latest
