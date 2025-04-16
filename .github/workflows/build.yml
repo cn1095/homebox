@@ -278,7 +278,6 @@ jobs:
         shell: bash
         run: |
           cd server
-          rm Cargo.lock
           if [[ $TARGET == 'aarch64-apple-darwin' || $TARGET == 'aarch64-pc-windows-msvc' || $TARGET == 'i686-pc-windows-msvc' ]]; then
             echo "编译： cross build --release --target=${{ matrix.target }}"
             HOMEBOX_ENV=production cross build --release --target=${{ matrix.target }}
